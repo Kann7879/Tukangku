@@ -19,24 +19,24 @@ class DatabaseSeeder extends Seeder
         $this->call(RolePermissionSeeder::class);
 
         $admin = User::create([
-            'username' => 'iiky',
-            'name' => 'Ahmad Rizki Saefuddin',
-            'email' => 'ahmad.rizki.s@gmail.com',
+            'username' => 'Tukang',
+            'name' => 'Tukang Ac',
+            'email' => 'tukang@gmail.com',
             'email_verified_at' => '2022-08-16 20:57:19',
-            'password' => Hash::make('#3st0CM5#')
+            'password' => Hash::make('tukang123')
         ]);
 
-        $admin->assignRole('Super Admin');
+        $admin->assignRole('Tukang');
 
         $user = User::create([
-            'username' => 'user',
-            'name' => 'User Website',
-            'email' => 'user@gmail.com',
+            'username' => 'Pelanggan',
+            'name' => 'Pelanggan 1',
+            'email' => 'pelanggan@gmail.com',
             'email_verified_at' => '2022-08-16 20:57:19',
-            'password' => Hash::make('#3st0CM5#')
+            'password' => Hash::make('12345')
         ]);
 
-        $user->assignRole('User');
+        $user->assignRole('Pelanggan');
 
         Setting::create([
             'key' => 'title',

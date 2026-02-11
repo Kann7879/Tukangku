@@ -81,13 +81,15 @@ class RolePermissionSeeder extends Seeder
             ]);
         }
 
-        Role::create([
-            'name' => 'Super Admin',
+        $tukang = Role::create([
+            'name' => 'Tukang',
             'guard_name' => 'web'
         ]);
 
+        $tukang->syncPermissions(Permission::all());
+
         $role = Role::create([
-            'name' => 'User',
+            'name' => 'Pelanggan',
             'guard_name' => 'web'
         ]);
         $role->givePermissionTo('Article Access');

@@ -6,19 +6,18 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 use App\Models\User;
 use App\Models\Setting;
+use App\Models\TukangProfile; 
+use App\Models\Category; 
 
 class DatabaseSeeder extends Seeder
 {
-    /**
-     * Seed the application's database.
-     *
-     * @return void
-     */
     public function run()
     {
         $this->call(RolePermissionSeeder::class);
 
-        $admin = User::create([
+        $this->call(CategorySeeder::class);
+
+        $tukang = User::create([
             'username' => 'Tukang',
             'name' => 'Tukang Ac',
             'email' => 'tukang@gmail.com',
@@ -26,7 +25,13 @@ class DatabaseSeeder extends Seeder
             'password' => Hash::make('tukang123')
         ]);
 
-        $admin->assignRole('Tukang');
+        $tukang->assignRole('Tukang');
+
+        TukangProfile::create([
+            'user_id' => $tukang->id,
+            'foto' => 'no_image.jpg',
+            'deskripsi' => 'Tukang profesional dan berpengalaman'
+        ]);
 
         $user = User::create([
             'username' => 'Pelanggan',
@@ -40,19 +45,19 @@ class DatabaseSeeder extends Seeder
 
         Setting::create([
             'key' => 'title',
-            'value' => 'ESTO CMS',
+            'value' => 'TukangKu',
             'serialize' => 0,
         ]);
 
         Setting::create([
             'key' => 'keyword',
-            'value' => 'a:6:{i:0;s:7:"Laravel";i:1;s:9:"Framework";i:2;s:17:"Framework Laravel";i:3;s:3:"CMS";i:4;s:8:"ESTO CMS";i:5;s:24:"PT Esto Kreasi Nusantara";}',
-            'serialize' => 1,
+            'value' => 'Tukang, Jasa, Service, Ledeng, Listrik',
+            'serialize' => 0,
         ]);
 
         Setting::create([
             'key' => 'description',
-            'value' => 'CMS (Content Management System) untuk Laravel karya anak bangsa PT Esto Kreasi Nusantara Head Bisnis Unit IT Conculting Tintapuccino, CMS ini berguna untuk membuat struktur awal sebuah website dimana CMS ini memiliki fitur dasar untuk Artikel, dan sudah memiliki hierarki user',
+            'value' => 'Marketplace jasa tukang terpercaya',
             'serialize' => 0,
         ]);
 
@@ -64,7 +69,7 @@ class DatabaseSeeder extends Seeder
 
         Setting::create([
             'key'   => 'author',
-            'value' => 'PT Esto Kreasi Nusantara Indonesia',
+            'value' => 'TukangKu Indonesia',
             'serialize' => 0,
         ]);
 

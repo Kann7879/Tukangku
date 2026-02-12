@@ -20,6 +20,15 @@ class AuthController extends Controller
         $this->middleware('auth:api', ['except' => ['login', 'register']]);
     }
 
+    /**
+     * ============================
+     * REGISTER USER (API)
+     * ============================
+     * 
+     * User WAJIB memilih role:
+     * - pelanggan
+     * - tukang
+     */
     public function register()
     {
         $validator = \Validator::make(request()->all(), [
@@ -27,6 +36,7 @@ class AuthController extends Controller
             'username' => 'required|string|max:255|unique:users',
             'email'    => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:6|confirmed',
+            'role'     => 'required|in:pelanggan,tukang', // 🔥 WAJIB
         ]);
 
         if ($validator->fails()) {
@@ -36,6 +46,7 @@ class AuthController extends Controller
             ], 422);
         }
 
+        // 🔹 create user
         $user = User::create([
             'name'     => request('name'),
             'username' => request('username'),
@@ -44,6 +55,10 @@ class AuthController extends Controller
         ]);
 
         if ($user) {
+
+            // 🔥 assign role (Spatie)
+            $user->assignRole(request('role'));
+
             return response()->json([
                 'success' => true,
                 'message' => 'Pendaftaran berhasil',
@@ -52,6 +67,7 @@ class AuthController extends Controller
                     'name'     => $user->name,
                     'username' => $user->username,
                     'email'    => $user->email,
+                    'role'     => request('role'),
                 ]
             ], 201);
         } else {
@@ -61,6 +77,7 @@ class AuthController extends Controller
             ], 500);
         }
     }
+
     /**
      * Get a JWT via given credentials.
      *
@@ -85,9 +102,11 @@ class AuthController extends Controller
                 'name'     => $user->name,
                 'username' => $user->username,
                 'email'    => $user->email,
+                'role'     => $user->getRoleNames()->first(), // 🔥 kirim role
             ],
         ]);
     }
+
     /**
      * Get the authenticated User.
      *
@@ -95,7 +114,15 @@ class AuthController extends Controller
      */
     public function me()
     {
-        return response()->json(auth()->user());
+        $user = auth()->user();
+
+        return response()->json([
+            'id'       => $user->id,
+            'name'     => $user->name,
+            'username' => $user->username,
+            'email'    => $user->email,
+            'role'     => $user->getRoleNames()->first(),
+        ]);
     }
 
     /**
@@ -109,6 +136,7 @@ class AuthController extends Controller
 
         return response()->json(['message' => 'Successfully logged out']);
     }
+
     /**
      * Refresh a token.
      *
@@ -130,8 +158,8 @@ class AuthController extends Controller
     {
         return response()->json([
             'access_token' => $token,
-            'token_type' => 'bearer',
-            'expires_in' => auth()->factory()->getTTL() * 60
+            'token_type'   => 'bearer',
+            'expires_in'   => auth()->factory()->getTTL() * 60
         ]);
     }
 }

@@ -15,6 +15,13 @@ class RoleController extends Controller
     use RolesAuthorizable;
 
     /**
+     * ============================
+     * ROLE INTI (TIDAK BOLEH DIHAPUS)
+     * ============================
+     */
+    protected $protectedRoles = ['pelanggan', 'tukang'];
+
+    /**
      * Display a listing of the resource.
      *
      * @return \Illuminate\Http\Response
@@ -45,7 +52,10 @@ class RoleController extends Controller
      */
     public function store(StoreRoleRequest $request)
     {
-        Role::create($request->all());
+        // 🔒 Ambil field yang diperlukan saja
+        Role::create([
+            'name' => $request->name,
+        ]);
 
         return redirect('/role')->with('success', 'New role has been created!');
     }
@@ -53,7 +63,7 @@ class RoleController extends Controller
     /**
      * Display the specified resource.
      *
-     * @param  \App\Models\Role  $role
+     * @param  \Spatie\Permission\Models\Role  $role
      * @return \Illuminate\Http\Response
      */
     public function show(Role $role)
@@ -67,10 +77,14 @@ class RoleController extends Controller
         return view('role.permission', $this->data);
     }
 
+    /**
+     * Update permission role
+     */
     public function showaction(Request $request, Role $role)
     {
         $permission_array = explode(',', $request['permission']);
 
+        // 🔹 revoke permission yang dihapus
         foreach ($role->permissions as $permission) {
             if (!in_array($permission['id'], $permission_array)) {
                 $permission = Permission::find($permission['id']);
@@ -78,6 +92,7 @@ class RoleController extends Controller
             }
         }
 
+        // 🔹 assign permission baru
         foreach ($permission_array as $permission_id) {
             $permission = Permission::find($permission_id);
             $role->givePermissionTo($permission['name']);
@@ -89,13 +104,19 @@ class RoleController extends Controller
     /**
      * Show the form for editing the specified resource.
      *
-     * @param  \App\Models\Role  $role
+     * @param  \Spatie\Permission\Models\Role  $role
      * @return \Illuminate\Http\Response
      */
     public function edit(Role $role)
     {
+        // 🚫 role inti tidak boleh diedit namanya
+        if (in_array($role->name, $this->protectedRoles)) {
+            return redirect('/role')->with('error', 'This role cannot be edited!');
+        }
+
         $this->data['role_data'] = $role;
         $this->data['action'] = "/role/" . $role->id;
+
         return view('role.form', $this->data);
     }
 
@@ -103,13 +124,19 @@ class RoleController extends Controller
      * Update the specified resource in storage.
      *
      * @param  \App\Http\Requests\UpdateRoleRequest  $request
-     * @param  \App\Models\Role  $role
+     * @param  \Spatie\Permission\Models\Role  $role
      * @return \Illuminate\Http\Response
      */
     public function update(UpdateRoleRequest $request, Role $role)
     {
-        Role::find($role->id)
-            ->update($request->all());
+        // 🚫 role inti tidak boleh diubah
+        if (in_array($role->name, $this->protectedRoles)) {
+            return redirect('/role')->with('error', 'This role cannot be updated!');
+        }
+
+        $role->update([
+            'name' => $request->name,
+        ]);
 
         return redirect('/role')->with('success', 'Role has been updated!');
     }
@@ -117,12 +144,24 @@ class RoleController extends Controller
     /**
      * Remove the specified resource from storage.
      *
-     * @param  \App\Models\Role  $role
+     * @param  \Spatie\Permission\Models\Role  $role
      * @return \Illuminate\Http\Response
      */
     public function destroy(Role $role)
     {
+        // 🚫 role inti tidak boleh dihapus
+        if (in_array($role->name, $this->protectedRoles)) {
+            return redirect('/role')->with('error', 'This role cannot be deleted!');
+        }
+
+        // 🚫 role masih dipakai user
+        if ($role->users()->count() > 0) {
+            return redirect('/role')
+                ->with('error', 'Role is still used by users!');
+        }
+
         Role::destroy($role->id);
+
         return redirect('/role')->with('success', 'Role has been deleted!');
     }
 }

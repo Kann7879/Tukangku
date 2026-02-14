@@ -9,7 +9,16 @@ class Transaction extends Model
 {
     use HasFactory;
 
-    protected $guarded = ['id'];
+    protected $fillable = [
+        'job_id',
+        'tukang_profile_id',
+        'amount',
+        'status'
+    ];
+
+    protected $casts = [
+        'amount' => 'integer',
+    ];
 
     public function job()
     {

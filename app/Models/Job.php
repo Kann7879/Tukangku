@@ -9,16 +9,29 @@ class Job extends Model
 {
     use HasFactory;
 
-    protected $guarded = ['id'];
+    protected $fillable = [
+        'user_id',
+        'tukang_profile_id',
+        'service_id',      // 🔥 TAMBAHKAN INI
+        'category_id',
+        'deskripsi',
+        'price',
+        'status'
+    ];
 
     public function user()
     {
-        return $this->belongsTo(User::class); // pelanggan
+        return $this->belongsTo(User::class);
     }
 
     public function tukangProfile()
     {
         return $this->belongsTo(TukangProfile::class);
+    }
+
+    public function category()
+    {
+        return $this->belongsTo(Category::class);
     }
 
     public function service()
@@ -35,4 +48,5 @@ class Job extends Model
     {
         return $this->hasOne(Review::class);
     }
+
 }

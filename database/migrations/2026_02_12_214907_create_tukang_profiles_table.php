@@ -32,7 +32,7 @@ return new class extends Migration
             $table->string('kota')->nullable();
 
             // Rating rata-rata
-            $table->decimal('rating', 3, 2)->default(0);
+            $table->decimal('rating', 3, 2)->default(5.00);
 
             // Status aktif / nonaktif
             $table->boolean('is_active')->default(true);

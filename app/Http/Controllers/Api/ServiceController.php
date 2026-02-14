@@ -93,6 +93,8 @@ class ServiceController extends Controller
             'deskripsi'         => $request->deskripsi,
         ]);
 
+        $service->load(['category']);
+
         /**
          * =====================================================
          * RESPONSE

@@ -26,6 +26,10 @@ return new class extends Migration
             $table->foreignId('service_id')
                 ->constrained()
                 ->onDelete('cascade');
+            
+            $table->foreignId('category_id')
+                ->constrained()
+                ->onDelete('cascade');
 
             $table->text('deskripsi');
             $table->integer('price');

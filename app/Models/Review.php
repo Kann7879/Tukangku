@@ -9,7 +9,16 @@ class Review extends Model
 {
     use HasFactory;
 
-    protected $guarded = ['id'];
+    protected $fillable = [
+        'job_id',
+        'tukang_profile_id',
+        'rating',
+        'comment'
+    ];
+
+    protected $casts = [
+        'rating' => 'integer',
+    ];
 
     public function job()
     {

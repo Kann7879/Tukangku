@@ -7,6 +7,10 @@ use App\Http\Controllers\Api\ServiceController;
 use App\Http\Controllers\Api\JobController;
 use App\Http\Controllers\Api\TransactionController;
 use App\Http\Controllers\Api\ReviewController;
+use App\Http\Controllers\Api\CustomerProfileController;
+use App\Http\Controllers\Api\CustomerHistoryController;
+use App\Http\Controllers\Api\TukangHistoryController;
+use App\Http\Controllers\Api\MessageController;
 
 /*
 |--------------------------------------------------------------------------
@@ -81,5 +85,37 @@ Route::middleware('auth:api')->group(function () {
 
     Route::post('/reviews', [ReviewController::class, 'store']);
     Route::get('/reviews/tukang', [ReviewController::class, 'myReviews']);
+
+});
+
+Route::middleware('auth:api')->group(function () {
+
+    Route::get('/customer/profile', [CustomerProfileController::class, 'show']);
+
+    Route::post('/customer/profile', [CustomerProfileController::class, 'store']);
+
+});
+
+Route::middleware('auth:api')->group(function () {
+
+    Route::get('/customer/last-order', [CustomerHistoryController::class, 'lastOrder']);
+
+    Route::get('/customer/history', [CustomerHistoryController::class, 'history']);
+
+});
+
+Route::middleware('auth:api')->group(function () {
+
+    Route::get('/tukang/history', [TukangHistoryController::class, 'history']);
+
+    Route::get('/tukang/last-job', [TukangHistoryController::class, 'lastJob']);
+
+});
+
+Route::middleware('auth:api')->group(function () {
+
+    Route::post('/messages', [MessageController::class, 'send']);
+
+    Route::get('/messages/{job_id}', [MessageController::class, 'getMessages']);
 
 });

@@ -49,4 +49,8 @@ class Job extends Model
         return $this->hasOne(Review::class);
     }
 
+    public function messages()
+    {
+        return $this->hasMany(Message::class);
+    }
 }

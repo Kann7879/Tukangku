@@ -101,6 +101,11 @@ class User extends Authenticatable implements MustVerifyEmail, JWTSubject
         return $this->hasMany(Job::class);
     }
 
+    public function customerProfile()
+    {
+        return $this->hasOne(CustomerProfile::class);
+    }
+
     /**
      * ============================
      * JWT AUTH

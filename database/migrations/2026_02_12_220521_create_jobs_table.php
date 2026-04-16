@@ -11,32 +11,38 @@ return new class extends Migration
         Schema::create('jobs', function (Blueprint $table) {
             $table->id();
 
-            // 🔹 Pelanggan
-            $table->foreignId('user_id')
+            // 🔹 RELASI
+            $table->foreignId('user_id') // pelanggan
                 ->constrained()
                 ->onDelete('cascade');
 
-            // 🔹 Tukang (via profile)
             $table->foreignId('tukang_profile_id')
                 ->nullable()
                 ->constrained()
                 ->onDelete('set null');
 
-            // 🔹 Service & Category
             $table->foreignId('service_id')
                 ->constrained()
                 ->onDelete('cascade');
-
+            
             $table->foreignId('category_id')
                 ->constrained()
                 ->onDelete('cascade');
 
-            // 🔹 Data job
+            // 🔹 DATA UTAMA
             $table->text('deskripsi');
-            $table->integer('price');
+
+            // 🔥 pakai bigInteger biar aman untuk harga besar
+            $table->bigInteger('price');
+
+            // 🔥 TAMBAHAN PENTING (LOKASI SNAPSHOT)
             $table->text('alamat')->nullable();
 
-            // 🔹 Status
+            // 🔥 OPTIONAL (kalau mau upgrade nanti)
+            // $table->decimal('latitude', 10, 7)->nullable();
+            // $table->decimal('longitude', 10, 7)->nullable();
+
+            // 🔹 STATUS
             $table->enum('status', [
                 'pending',
                 'diterima',

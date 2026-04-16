@@ -12,18 +12,27 @@ class Job extends Model
     protected $fillable = [
         'user_id',
         'tukang_profile_id',
-        'service_id',      // 🔥 TAMBAHKAN INI
+        'service_id',
         'category_id',
         'deskripsi',
         'price',
+        'alamat', // 🔥 WAJIB (biar bisa disimpan)
         'status'
     ];
 
+    /**
+     * =========================
+     * RELATIONSHIPS
+     * =========================
+     */
+
+    // 🔹 Pelanggan
     public function user()
     {
         return $this->belongsTo(User::class);
     }
 
+    // 🔹 Tukang (via profile)
     public function tukangProfile()
     {
         return $this->belongsTo(TukangProfile::class);

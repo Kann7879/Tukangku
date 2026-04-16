@@ -9,11 +9,6 @@ use Illuminate\Support\Facades\Auth;
 
 class JobController extends Controller
 {
-    /**
-     * =====================================================
-     * CONSTRUCTOR
-     * =====================================================
-     */
     public function __construct()
     {
         $this->middleware('auth:api');
@@ -21,9 +16,8 @@ class JobController extends Controller
 
     /**
      * =====================================================
-     * BUAT JOB (KHUSUS PELANGGAN)
+     * BUAT JOB (PELAGGAN)
      * =====================================================
-     * POST /api/jobs
      */
     public function store(Request $request)
     {
@@ -42,32 +36,28 @@ class JobController extends Controller
             'price'      => 'required|integer|min:0',
         ]);
 
-        // 🔥 Ambil service
         $service = \App\Models\Service::with('category')->findOrFail($request->service_id);
 
         $job = Job::create([
             'user_id'     => $user->id,
             'service_id'  => $service->id,
-            'category_id' => $service->category_id, // 🔥 ambil dari service, bukan request
+            'category_id' => $service->category_id,
             'deskripsi'   => $request->deskripsi,
             'price'       => $request->price,
             'status'      => 'pending'
         ]);
 
-        $job->load(['service', 'category']);
-
         return response()->json([
             'success' => true,
             'message' => 'Job berhasil dibuat',
-            'data'    => $job
+            'data'    => $this->formatJob($job->load(['service', 'category', 'user.customerProfile']))
         ], 201);
     }
 
     /**
      * =====================================================
-     * LIST JOB MILIK USER
+     * JOB MILIK PELANGGAN
      * =====================================================
-     * GET /api/jobs/my
      */
     public function myJobs()
     {
@@ -80,15 +70,14 @@ class JobController extends Controller
 
         return response()->json([
             'success' => true,
-            'data'    => $jobs
+            'data' => $jobs->map(fn($job) => $this->formatJob($job))
         ]);
     }
 
     /**
      * =====================================================
-     * LIST JOB UNTUK TUKANG
+     * JOB UNTUK TUKANG (PENTING 🔥)
      * =====================================================
-     * GET /api/jobs/available
      */
     public function availableJobs()
     {
@@ -101,22 +90,25 @@ class JobController extends Controller
             ], 403);
         }
 
-        $jobs = Job::with(['user', 'category'])
-            ->where('status', 'pending')
-            ->latest()
-            ->get();
+        $jobs = Job::with([
+            'user.customerProfile', // 🔥 ambil alamat
+            'service',
+            'category'
+        ])
+        ->where('status', 'pending')
+        ->latest()
+        ->get();
 
         return response()->json([
             'success' => true,
-            'data'    => $jobs
+            'data' => $jobs->map(fn($job) => $this->formatJob($job))
         ]);
     }
 
     /**
      * =====================================================
-     * TERIMA JOB (KHUSUS TUKANG)
+     * TERIMA JOB
      * =====================================================
-     * PATCH /api/jobs/{id}/accept
      */
     public function acceptJob($id)
     {
@@ -146,20 +138,17 @@ class JobController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Job berhasil diterima',
-            'data'    => $job
+            'data' => $this->formatJob($job->load(['user.customerProfile', 'service']))
         ]);
     }
 
     /**
      * =====================================================
-     * UPDATE STATUS JOB
+     * UPDATE STATUS
      * =====================================================
-     * PATCH /api/jobs/{id}/status
      */
     public function updateStatus(Request $request, $id)
     {
-        $user = Auth::guard('api')->user();
-
         $job = Job::find($id);
 
         if (! $job) {
@@ -180,7 +169,31 @@ class JobController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Status berhasil diperbarui',
-            'data'    => $job
+            'data' => $this->formatJob($job->load(['user.customerProfile']))
         ]);
+    }
+
+    /**
+     * =====================================================
+     * FORMAT RESPONSE (🔥 BIAR CLEAN)
+     * =====================================================
+     */
+    private function formatJob($job)
+    {
+        return [
+            'id' => $job->id,
+            'title' => $job->service->name ?? 'Service',
+            'description' => $job->deskripsi,
+            'price' => $job->price,
+            'status' => $job->status,
+
+            'customer_name' => $job->user->name ?? '-',
+
+            // 🔥 LOKASI DARI CUSTOMER PROFILE
+            'location' => $job->user->customerProfile->alamat ?? 'Alamat tidak tersedia',
+
+            'category' => $job->category->name ?? '-',
+            'created_at' => $job->created_at,
+        ];
     }
 }

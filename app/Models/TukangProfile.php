@@ -9,7 +9,26 @@ class TukangProfile extends Model
 {
     use HasFactory;
 
-    protected $guarded = ['id'];
+    protected $fillable = [
+        'user_id',
+        'foto',
+        'deskripsi',
+        'no_hp',
+        'kota',
+        'rating',
+        'is_active'
+    ];
+
+    protected $casts = [
+        'rating' => 'float',
+        'is_active' => 'boolean',
+    ];
+
+    /**
+     * =========================
+     * RELATIONSHIPS
+     * =========================
+     */
 
     public function user()
     {
@@ -34,5 +53,20 @@ class TukangProfile extends Model
     public function transactions()
     {
         return $this->hasMany(Transaction::class);
+    }
+
+    /**
+     * =========================
+     * ACCESSOR FOTO
+     * =========================
+     */
+    public function getFotoAttribute($value)
+    {
+        // 🔥 kalau kosong
+        if (!$value || $value === 'no_image.jpg') {
+            return asset('storage/tukang/no_image.jpg');
+        }
+
+        return asset('storage/tukang/' . $value);
     }
 }

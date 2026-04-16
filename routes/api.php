@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\TransactionController;
 use App\Http\Controllers\Api\ReviewController;
 use App\Http\Controllers\Api\CustomerProfileController;
 use App\Http\Controllers\Api\CustomerHistoryController;
+use App\Http\Controllers\Api\TukangProfileController;
 use App\Http\Controllers\Api\TukangHistoryController;
 use App\Http\Controllers\Api\MessageController;
 
@@ -101,6 +102,13 @@ Route::middleware('auth:api')->group(function () {
     Route::get('/customer/last-order', [CustomerHistoryController::class, 'lastOrder']);
 
     Route::get('/customer/history', [CustomerHistoryController::class, 'history']);
+
+});
+
+Route::middleware('auth:api')->group(function () {
+
+    Route::get('/tukang/profile', [TukangProfileController::class, 'show']);
+    Route::post('/tukang/profile', [TukangProfileController::class, 'store']);
 
 });
 

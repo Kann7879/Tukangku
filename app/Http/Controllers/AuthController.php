@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
@@ -10,11 +9,6 @@ use Illuminate\Http\Request;
 
 class AuthController extends Controller
 {
-    /**
-     * Create a new AuthController instance.
-     *
-     * @return void
-     */
     public function __construct()
     {
         $this->middleware('auth:api', ['except' => ['login', 'register']]);
@@ -22,12 +16,8 @@ class AuthController extends Controller
 
     /**
      * ============================
-     * REGISTER USER (API)
+     * REGISTER
      * ============================
-     * 
-     * User WAJIB memilih role:
-     * - pelanggan
-     * - tukang
      */
     public function register()
     {
@@ -36,7 +26,7 @@ class AuthController extends Controller
             'username' => 'required|string|max:255|unique:users',
             'email'    => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:6|confirmed',
-            'role'     => 'required|in:pelanggan,tukang', // 🔥 WAJIB
+            'role'     => 'required|in:pelanggan,tukang',
         ]);
 
         if ($validator->fails()) {
@@ -46,7 +36,6 @@ class AuthController extends Controller
             ], 422);
         }
 
-        // 🔹 create user
         $user = User::create([
             'name'     => request('name'),
             'username' => request('username'),
@@ -54,67 +43,55 @@ class AuthController extends Controller
             'password' => Hash::make(request('password')),
         ]);
 
-        if ($user) {
+        // assign role
+        $user->assignRole(request('role'));
 
-            // 🔥 assign role (Spatie)
-            $user->assignRole(request('role'));
+        // buat profile kosong
+        $user->customerProfile()->create([
+            'alamat' => null,
+            'no_telepon' => null,
+        ]);
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Pendaftaran berhasil',
-                'user'    => [
-                    'id'       => $user->id,
-                    'name'     => $user->name,
-                    'username' => $user->username,
-                    'email'    => $user->email,
-                    'role'     => request('role'),
-                ]
-            ], 201);
-        } else {
-            return response()->json([
-                'success' => false,
-                'message' => 'Pendaftaran gagal'
-            ], 500);
-        }
+        return response()->json([
+            'success' => true,
+            'message' => 'Pendaftaran berhasil',
+            'user'    => [
+                'id'       => $user->id,
+                'name'     => $user->name,
+                'username' => $user->username,
+                'email'    => $user->email,
+                'role'     => request('role'),
+            ]
+        ], 201);
     }
 
     /**
-     * Get a JWT via given credentials.
-     *
-     * @return \Illuminate\Http\JsonResponse
+     * ============================
+     * LOGIN
+     * ============================
      */
     public function login()
     {
         $credentials = request(['email', 'password']);
 
-        if (! $token = Auth::guard('api')->attempt($credentials)) {
-            return response()->json(['error' => 'Unauthorized'], 401);
+        if (! $token = auth('api')->attempt($credentials)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Email atau password salah'
+            ], 401);
         }
 
-        $user = Auth::guard('api')->user();
-
-        return response()->json([
-            'access_token' => $token,
-            'token_type'   => 'bearer',
-            'expires_in'   => Auth::guard('api')->factory()->getTTL() * 60,
-            'user'         => [
-                'id'       => $user->id,
-                'name'     => $user->name,
-                'username' => $user->username,
-                'email'    => $user->email,
-                'role'     => $user->getRoleNames()->first(), // 🔥 kirim role
-            ],
-        ]);
+        return $this->respondWithToken($token);
     }
 
     /**
-     * Get the authenticated User.
-     *
-     * @return \Illuminate\Http\JsonResponse
+     * ============================
+     * ME
+     * ============================
      */
     public function me()
     {
-        $user = auth()->user();
+        $user = auth('api')->user();
 
         return response()->json([
             'id'       => $user->id,
@@ -122,44 +99,104 @@ class AuthController extends Controller
             'username' => $user->username,
             'email'    => $user->email,
             'role'     => $user->getRoleNames()->first(),
+            'alamat'   => $user->customerProfile->alamat ?? null,
+            'no_telepon' => $user->customerProfile->no_telepon ?? null,
         ]);
     }
 
     /**
-     * Log the user out (Invalidate the token).
-     *
-     * @return \Illuminate\Http\JsonResponse
+     * ============================
+     * UPDATE PROFILE
+     * ============================
+     */
+    public function updateProfile(Request $request)
+    {
+        $user = auth('api')->user();
+
+        $request->validate([
+            'name'     => 'nullable|string|max:255',
+            'username' => 'nullable|string|max:255|unique:users,username,' . $user->id,
+            'email'    => 'nullable|email|unique:users,email,' . $user->id,
+            'password' => 'nullable|min:6|confirmed',
+            'alamat'   => 'nullable|string',
+            'no_telepon' => 'nullable|string',
+        ]);
+
+        $user->update([
+            'name'     => $request->name ?? $user->name,
+            'username' => $request->username ?? $user->username,
+            'email'    => $request->email ?? $user->email,
+        ]);
+
+        if ($request->password) {
+            $user->update([
+                'password' => Hash::make($request->password)
+            ]);
+        }
+
+        $user->customerProfile()->updateOrCreate(
+            ['user_id' => $user->id],
+            [
+                'alamat' => $request->alamat,
+                'no_telepon' => $request->no_telepon,
+            ]
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Profile berhasil diperbarui',
+            'data' => $user->load('customerProfile')
+        ]);
+    }
+
+    /**
+     * ============================
+     * LOGOUT
+     * ============================
      */
     public function logout()
     {
-        auth()->logout();
+        auth('api')->logout();
 
-        return response()->json(['message' => 'Successfully logged out']);
+        return response()->json([
+            'success' => true,
+            'message' => 'Berhasil logout'
+        ]);
     }
 
     /**
-     * Refresh a token.
-     *
-     * @return \Illuminate\Http\JsonResponse
+     * ============================
+     * REFRESH TOKEN
+     * ============================
      */
     public function refresh()
     {
-        return $this->respondWithToken(auth()->refresh());
+        return $this->respondWithToken(auth('api')->refresh());
     }
 
     /**
-     * Get the token array structure.
-     *
-     * @param  string $token
-     *
-     * @return \Illuminate\Http\JsonResponse
+     * ============================
+     * TOKEN RESPONSE
+     * ============================
      */
     protected function respondWithToken($token)
     {
+        $user = auth('api')->user();
+
         return response()->json([
+            'success' => true,
             'access_token' => $token,
             'token_type'   => 'bearer',
-            'expires_in'   => auth()->factory()->getTTL() * 60
+            'expires_in'   => auth('api')->factory()->getTTL() * 60,
+            'user' => [
+                'id'       => $user->id,
+                'name'     => $user->name,
+                'username' => $user->username,
+                'email'    => $user->email,
+                'role'     => $user->getRoleNames()->first(),
+                'alamat'   => $user->customerProfile->alamat ?? null,
+                'no_telepon' => $user->customerProfile->no_telepon ?? null,
+            ]
         ]);
     }
 }

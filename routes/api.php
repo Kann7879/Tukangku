@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\CustomerHistoryController;
 use App\Http\Controllers\Api\TukangProfileController;
 use App\Http\Controllers\Api\TukangHistoryController;
 use App\Http\Controllers\Api\MessageController;
+use App\Http\Controllers\Api\CategoryController;
 
 /*
 |--------------------------------------------------------------------------
@@ -46,8 +47,10 @@ Route::group([
     Route::post('refresh', [AuthController::class, 'refresh']);
 
     // Ambil data user yang sedang login
-    Route::post('me', [AuthController::class, 'me']);
+    Route::get('me', [AuthController::class, 'me']);
 });
+
+Route::get('/categories', [CategoryController::class, 'index']);
 
 /**
  * =====================================================
@@ -109,6 +112,8 @@ Route::middleware('auth:api')->group(function () {
 
     Route::get('/tukang/profile', [TukangProfileController::class, 'show']);
     Route::post('/tukang/profile', [TukangProfileController::class, 'store']);
+
+    Route::get('/tukang/dashboard', [TukangProfileController::class, 'dashboard']);
 
 });
 

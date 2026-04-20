@@ -10,43 +10,15 @@ use Illuminate\Support\Facades\Auth;
 
 class ServiceController extends Controller
 {
-    /**
-     * =====================================================
-     * CONSTRUCTOR
-     * =====================================================
-     * 
-     * Pastikan user sudah login (JWT)
-     */
     public function __construct()
     {
         $this->middleware('auth:api');
     }
 
-    /**
-     * =====================================================
-     * TAMBAH JASA (KHUSUS TUKANG)
-     * =====================================================
-     * 
-     * Endpoint:
-     * POST /api/services
-     * 
-     * Body:
-     * - category_id
-     * - price_min
-     * - price_max
-     * - deskripsi (optional)
-     */
     public function store(Request $request)
     {
         $user = Auth::guard('api')->user();
 
-        /**
-         * =====================================================
-         * VALIDASI ROLE
-         * =====================================================
-         * 
-         * Pastikan hanya user dengan role "Tukang"
-         */
         if (! $user->hasRole('Tukang')) {
             return response()->json([
                 'success' => false,
@@ -54,11 +26,6 @@ class ServiceController extends Controller
             ], 403);
         }
 
-        /**
-         * =====================================================
-         * VALIDASI DATA
-         * =====================================================
-         */
         $request->validate([
             'category_id' => 'required|exists:categories,id',
             'price_min'   => 'required|integer|min:0',
@@ -66,11 +33,6 @@ class ServiceController extends Controller
             'deskripsi'   => 'nullable|string'
         ]);
 
-        /**
-         * =====================================================
-         * AMBIL TUKANG PROFILE
-         * =====================================================
-         */
         $tukangProfile = $user->tukangProfile;
 
         if (! $tukangProfile) {
@@ -80,11 +42,6 @@ class ServiceController extends Controller
             ], 400);
         }
 
-        /**
-         * =====================================================
-         * SIMPAN JASA
-         * =====================================================
-         */
         $service = Service::create([
             'tukang_profile_id' => $tukangProfile->id,
             'category_id'       => $request->category_id,
@@ -95,11 +52,6 @@ class ServiceController extends Controller
 
         $service->load(['category']);
 
-        /**
-         * =====================================================
-         * RESPONSE
-         * =====================================================
-         */
         return response()->json([
             'success' => true,
             'message' => 'Jasa berhasil ditambahkan',
@@ -107,14 +59,6 @@ class ServiceController extends Controller
         ], 201);
     }
 
-    /**
-     * =====================================================
-     * LIST JASA MILIK TUKANG (DASHBOARD)
-     * =====================================================
-     * 
-     * Endpoint:
-     * GET /api/services/my
-     */
     public function myServices()
     {
         $user = Auth::guard('api')->user();
@@ -126,13 +70,34 @@ class ServiceController extends Controller
             ], 403);
         }
 
+        $tukangProfile = $user->tukangProfile;
+
+        if (! $tukangProfile) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Profil tukang belum dibuat'
+            ], 404);
+        }
+
         $services = Service::with('category')
-            ->where('tukang_profile_id', $user->tukangProfile->id)
+            ->where('tukang_profile_id', $tukangProfile->id)
             ->get();
+
+        $mappedServices = $services->map(function ($s) {
+            return [
+                'id'            => $s->id,
+                'category_id'   => $s->category_id,
+                'category_name' => $s->category ? $s->category->name : 'Umum',
+                'price_min'     => $s->price_min,
+                'price_max'     => $s->price_max,
+                'deskripsi'     => $s->deskripsi,
+                'created_at'    => $s->created_at ? $s->created_at->format('d M Y') : null,
+            ];
+        });
 
         return response()->json([
             'success' => true,
-            'data' => $services
+            'data' => $mappedServices
         ]);
     }
 }

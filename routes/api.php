@@ -36,17 +36,18 @@ Route::group([
     Route::get('me', [AuthController::class, 'me']);
 });
 
-Route::get('/categories', [CategoryController::class, 'index']);
-
 /**
  * =====================================================
- * TUKANG PUBLIC API (TANPA LOGIN) 🔥
+ * PUBLIC API (TANPA LOGIN)
  * =====================================================
  */
-Route::get('/tukang', [TukangProfileController::class, 'index']);              // semua tukang
-Route::get('/tukang/top', [TukangProfileController::class, 'top']);            // tukang terbaik
-Route::get('/tukang/category/{categoryId}', [TukangProfileController::class, 'byCategory']); // by kategori
-Route::get('/tukang/{id}', [TukangProfileController::class, 'showPublic']);    // detail tukang
+Route::get('/categories', [CategoryController::class, 'index']);
+
+// 🔥 TUKANG PUBLIC - harus di atas yang auth
+Route::get('/tukangs', [TukangProfileController::class, 'index']);                    // semua tukang
+Route::get('/tukangs/top', [TukangProfileController::class, 'top']);                  // top 10
+Route::get('/tukangs/category/{categoryId}', [TukangProfileController::class, 'byCategory']); // by kategori
+Route::get('/tukangs/{id}', [TukangProfileController::class, 'showPublic']);          // detail tukang
 
 /**
  * =====================================================
@@ -122,6 +123,7 @@ Route::middleware('auth:api')->group(function () {
     Route::get('/tukang/profile', [TukangProfileController::class, 'show']);
     Route::post('/tukang/profile', [TukangProfileController::class, 'store']);
     Route::get('/tukang/dashboard', [TukangProfileController::class, 'dashboard']);
+    Route::post('/tukang/profile/photo', [TukangProfileController::class, 'uploadPhoto']);
 });
 
 /**

@@ -26,13 +26,11 @@ class JobController extends Controller
 
         $query = Job::with([
             'user.customerProfile',
-            'service',
-            'category',
-            'tukangProfile',
+            'service.category',        // 🔥 FIX: load category via service
+            'tukangProfile.user',      // 🔥 FIX: load user tukang
         ]);
 
         if ($user->hasRole('Tukang')) {
-            // Tukang: ambil job yg ditugaskan ke dia
             $tukangProfileId = $user->tukangProfile?->id;
 
             if (!$tukangProfileId) {
@@ -45,16 +43,15 @@ class JobController extends Controller
 
             $query->where('tukang_profile_id', $tukangProfileId);
         } else {
-            // Pelanggan: ambil job miliknya
             $query->where('user_id', $user->id);
         }
 
-        // Optional filter ?status=pending
+        // Filter status
         if ($request->filled('status')) {
             $query->where('status', $request->status);
         }
 
-        // Optional filter ?type=active|history
+        // Filter type
         if ($request->type === 'active') {
             $query->whereIn('status', ['pending', 'diterima', 'dikerjakan']);
         } elseif ($request->type === 'history') {
@@ -65,7 +62,7 @@ class JobController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $jobs->map(fn($job) => $this->formatJob($job)),
+            'data' => $jobs->map(fn($job) => $this->formatJob($job))->toArray(),
         ]);
     }
 
@@ -76,15 +73,11 @@ class JobController extends Controller
      */
     public function show($id)
     {
-        $job = Job::with(['user.customerProfile', 'service', 'category', 'tukangProfile'])
-            ->find($id);
-
-        if (!$job) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Job tidak ditemukan',
-            ], 404);
-        }
+        $job = Job::with([
+            'user.customerProfile', 
+            'service.category',
+            'tukangProfile.user',
+        ])->findOrFail($id); // 🔥 FAIL → 404 auto
 
         return response()->json([
             'success' => true,
@@ -110,28 +103,28 @@ class JobController extends Controller
 
         $request->validate([
             'service_id' => 'required|exists:services,id',
-            'deskripsi'  => 'required|string',
-            'price'      => 'required|integer|min:0',
-            'alamat'     => 'nullable|string',
+            'deskripsi'  => 'required|string|max:1000',
+            'price'      => 'required|integer|min:10000|max:50000000', // Realistic range
+            'alamat'     => 'required|string|max:500', // 🔥 WAJIB!
         ]);
 
         $service = \App\Models\Service::with('category')->findOrFail($request->service_id);
 
         $job = Job::create([
-            'user_id'     => $user->id,
-            'service_id'  => $service->id,
-            'category_id' => $service->category_id,
-            'deskripsi'   => $request->deskripsi,
-            'price'       => $request->price,
-            'alamat'      => $request->alamat ?? $user->customerProfile?->alamat,
-            'status'      => 'pending',
+            'user_id'        => $user->id,
+            'service_id'     => $service->id,
+            'category_id'    => $service->category_id,
+            'deskripsi'      => $request->deskripsi,
+            'price'          => $request->price,
+            'alamat'         => $request->alamat,
+            'status'         => 'pending',
         ]);
 
         return response()->json([
             'success' => true,
-            'message' => 'Job berhasil dibuat',
+            'message' => 'Job berhasil dibuat!',
             'data'    => $this->formatJob(
-                $job->load(['service', 'category', 'user.customerProfile'])
+                $job->load(['service.category', 'tukangProfile.user'])
             ),
         ], 201);
     }
@@ -143,220 +136,194 @@ class JobController extends Controller
      */
     public function update(Request $request, $id)
     {
-        $job = Job::find($id);
-
-        if (!$job) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Job tidak ditemukan',
-            ], 404);
-        }
+        $job = Job::findOrFail($id); // 🔥 FAIL → 404
 
         if ($job->user_id !== Auth::id()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Tidak diizinkan',
+                'message' => 'Tidak diizinkan edit job orang lain',
             ], 403);
         }
+
+        $request->validate([
+            'deskripsi' => 'sometimes|string|max:1000',
+            'price'     => 'sometimes|integer|min:10000|max:50000000',
+            'alamat'    => 'sometimes|string|max:500',
+        ]);
 
         $job->update($request->only(['deskripsi', 'price', 'alamat']));
 
         return response()->json([
             'success' => true,
-            'message' => 'Job diperbarui',
-            'data'    => $this->formatJob($job->load(['service', 'category', 'user.customerProfile'])),
-        ]);
-    }
-
-    /**
-     * =====================================================
-     * DESTROY — Hapus pesanan
-     * =====================================================
-     */
-    public function destroy($id)
-    {
-        $job = Job::find($id);
-
-        if (!$job) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Job tidak ditemukan',
-            ], 404);
-        }
-
-        if ($job->user_id !== Auth::id()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Tidak diizinkan',
-            ], 403);
-        }
-
-        $job->delete();
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Job dihapus',
-        ]);
-    }
-
-    /**
-     * =====================================================
-     * JOB MILIK PELANGGAN (endpoint lama, masih dipakai?)
-     * =====================================================
-     */
-    public function myJobs()
-    {
-        $user = Auth::guard('api')->user();
-
-        $jobs = Job::with(['service', 'category', 'tukangProfile', 'user.customerProfile'])
-            ->where('user_id', $user->id)
-            ->latest()
-            ->get();
-
-        return response()->json([
-            'success' => true,
-            'data' => $jobs->map(fn($job) => $this->formatJob($job)),
-        ]);
-    }
-
-    /**
-     * =====================================================
-     * JOB TERSEDIA BUAT TUKANG (status=pending)
-     * =====================================================
-     */
-    public function availableJobs()
-    {
-        $user = Auth::guard('api')->user();
-
-        if (!$user->hasRole('Tukang')) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Akses ditolak',
-            ], 403);
-        }
-
-        $jobs = Job::with(['user.customerProfile', 'service', 'category'])
-            ->where('status', 'pending')
-            ->latest()
-            ->get();
-
-        return response()->json([
-            'success' => true,
-            'data' => $jobs->map(fn($job) => $this->formatJob($job)),
-        ]);
-    }
-
-    /**
-     * =====================================================
-     * TERIMA JOB
-     * =====================================================
-     */
-    public function acceptJob($id)
-    {
-        $user = Auth::guard('api')->user();
-
-        if (!$user->hasRole('Tukang')) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Hanya tukang yang bisa menerima job',
-            ], 403);
-        }
-
-        $job = Job::find($id);
-
-        if (!$job || $job->status !== 'pending') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Job tidak tersedia',
-            ], 400);
-        }
-
-        $job->update([
-            'tukang_profile_id' => $user->tukangProfile->id,
-            'status' => 'diterima',
-        ]);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Job berhasil diterima',
-            'data' => $this->formatJob($job->load(['user.customerProfile', 'service', 'category'])),
-        ]);
-    }
-
-    /**
-     * =====================================================
-     * UPDATE STATUS (🔥 Dipakai tombol Terima/Kerjakan/Selesai)
-     * =====================================================
-     */
-    public function updateStatus(Request $request, $id)
-    {
-        $job = Job::find($id);
-
-        if (!$job) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Job tidak ditemukan',
-            ], 404);
-        }
-
-        $request->validate([
-            'status' => 'required|in:pending,diterima,dikerjakan,selesai,dibatalkan',
-        ]);
-
-        $user = Auth::guard('api')->user();
-
-        // 🔥 Kalau status diterima & job belum punya tukang, assign dia
-        if ($request->status === 'diterima' && !$job->tukang_profile_id) {
-            if ($user->hasRole('Tukang') && $user->tukangProfile) {
-                $job->tukang_profile_id = $user->tukangProfile->id;
-            }
-        }
-
-        $job->status = $request->status;
-        $job->save();
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Status berhasil diperbarui',
-            'data' => $this->formatJob(
-                $job->load(['user.customerProfile', 'service', 'category', 'tukangProfile'])
+            'message' => 'Job berhasil diupdate',
+            'data'    => $this->formatJob(
+                $job->load(['service.category', 'tukangProfile.user'])
             ),
         ]);
     }
 
     /**
      * =====================================================
-     * 🔥 FORMAT RESPONSE — Disamakan sama yang dibaca Flutter
+     * DESTROY — Hapus pesanan (hanya pending)
+     * =====================================================
+     */
+    public function destroy($id)
+    {
+        $job = Job::findOrFail($id);
+
+        if ($job->user_id !== Auth::id()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tidak diizinkan hapus job orang lain',
+            ], 403);
+        }
+
+        if (!in_array($job->status, ['pending'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Hanya job pending yang bisa dihapus',
+            ], 400);
+        }
+
+        $job->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Job berhasil dihapus',
+        ]);
+    }
+
+    /**
+     * =====================================================
+     * TERIMA JOB (Tukang)
+     * =====================================================
+     */
+    public function acceptJob($id)
+    {
+        $user = Auth::guard('api')->user();
+        $tukangProfile = $user->tukangProfile;
+
+        if (!$user->hasRole('Tukang') || !$tukangProfile) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Profil tukang belum lengkap',
+            ], 403);
+        }
+
+        $job = Job::findOrFail($id);
+
+        if ($job->status !== 'pending') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Job sudah diambil orang lain',
+            ], 400);
+        }
+
+        $job->update([
+            'tukang_profile_id' => $tukangProfile->id,
+            'status' => 'diterima',
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Job berhasil diterima!',
+            'data' => $this->formatJob($job->load(['service.category', 'user.customerProfile'])),
+        ]);
+    }
+
+    /**
+     * =====================================================
+     * UPDATE STATUS (Tombol: Kerjakan/Selesai/Batal)
+     * =====================================================
+     */
+    public function updateStatus(Request $request, $id)
+    {
+        $job = Job::findOrFail($id);
+        $user = Auth::guard('api')->user();
+
+        $request->validate([
+            'status' => 'required|in:diterima,dikerjakan,selesai,dibatalkan',
+        ]);
+
+        // 🔥 AUTHORIZATION
+        match($request->status) {
+            'diterima', 'dikerjakan', 'selesai' => function() use ($user, $job) {
+                if (!$user->hasRole('Tukang') || $job->tukang_profile_id !== $user->tukangProfile?->id) {
+                    throw new \Exception('Hanya tukang yang mengerjakan job ini');
+                }
+            },
+            'dibatalkan' => function() use ($user, $job) {
+                if ($job->user_id !== $user->id) {
+                    throw new \Exception('Hanya pemilik job yang bisa membatalkan');
+                }
+            },
+            default => null,
+        };
+
+        $job->status = $request->status;
+        $job->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => "Status diupdate ke '{$request->status}'",
+            'data' => $this->formatJob(
+                $job->load(['service.category', 'tukangProfile.user', 'user.customerProfile'])
+            ),
+        ]);
+    }
+
+    /**
+     * =====================================================
+     * 🔥 FORMAT RESPONSE — NULL-SAFE & Konsisten
      * =====================================================
      */
     private function formatJob($job)
     {
         return [
-            'id'         => $job->id,
-            'deskripsi'  => $job->deskripsi,                 // ✅ Flutter baca ini
-            'status'     => $job->status,
-            'price'      => (int) $job->price,
-            'alamat'     => $job->alamat
-                            ?? $job->user?->customerProfile?->alamat
-                            ?? null,                         // ✅ fallback ke profile
-            'created_at' => $job->created_at,
+            'id'         => (int) $job->id,
+            'deskripsi'  => $job->deskripsi ?? '',
+            'status'     => $job->status ?? 'pending',
+            'price'      => (int) ($job->price ?? 0),
+            'alamat'     => $job->alamat ?? '',
+            'created_at' => $job->created_at?->format('d M Y H:i') ?? '',
 
-            // Nested objects (Flutter baca `category.nama` / `service.nama`)
-            'category' => $job->category ? [
-                'id'   => $job->category->id,
-                'nama' => $job->category->nama ?? $job->category->name ?? '-',
-            ] : null,
-
+            // 🔥 SERVICE & CATEGORY
             'service' => $job->service ? [
-                'id'   => $job->service->id,
-                'nama' => $job->service->nama ?? $job->service->name ?? '-',
+                'id'            => (int) $job->service->id,
+                'category_id'   => (int) ($job->service->category_id ?? 0),
+                'category_name' => $job->service->category->name ?? 'Layanan Umum',
+                'price_min'     => (int) ($job->service->price_min ?? 0),
+                'price_max'     => (int) ($job->service->price_max ?? 0),
+                'price_range'   => $this->formatPriceRange($job->service),
+                'deskripsi'     => $job->service->deskripsi ?? '',
             ] : null,
 
+            // 🔥 USER (Pelanggan)
             'user' => $job->user ? [
-                'id'    => $job->user->id,
-                'name'  => $job->user->name,
-                'phone' => $job->user->phone ?? $job->user->customerProfile?->phone ?? null,
+                'id'       => (int) $job->user->id,
+                'name'     => $job->user->name ?? '',
+                'username' => $job->user->username ?? '',
+                'phone'    => $job->user->phone ?? $job->user->customerProfile?->phone ?? '',
+            ] : null,
+
+            // 🔥 TUKANG
+            'tukang' => $job->tukangProfile ? [
+                'id'       => (int) $job->tukangProfile->id,
+                'name'     => $job->tukangProfile->user->name ?? '',
+                'foto'     => $job->tukangProfile->foto,
+                'phone'    => $job->tukangProfile->no_hp ?? '',
+                'rating'   => (float) ($job->tukangProfile->rating ?? 0),
             ] : null,
         ];
+    }
+
+    /**
+     * 🔥 Helper format harga range
+     */
+    private function formatPriceRange($service)
+    {
+        $min = (int) ($service->price_min ?? 0);
+        $max = (int) ($service->price_max ?? 0);
+        return 'Rp ' . number_format($min) . ' - Rp ' . number_format($max);
     }
 }

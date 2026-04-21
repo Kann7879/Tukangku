@@ -20,15 +20,11 @@ class TukangProfile extends Model
     ];
 
     protected $casts = [
-        'rating' => 'float',
-        'is_active' => 'boolean',
+        'id' => 'integer',        // ✅ pastikan integer
+        'user_id' => 'integer',   // ✅ pastikan integer
+        'rating' => 'float',      // ✅ float (bisa desimal)
+        'is_active' => 'boolean', // ✅ boolean
     ];
-
-    /**
-     * =========================
-     * RELATIONSHIPS
-     * =========================
-     */
 
     public function user()
     {
@@ -55,18 +51,11 @@ class TukangProfile extends Model
         return $this->hasMany(Transaction::class);
     }
 
-    /**
-     * =========================
-     * ACCESSOR FOTO
-     * =========================
-     */
     public function getFotoAttribute($value)
     {
-        // 🔥 kalau kosong
         if (!$value || $value === 'no_image.jpg') {
             return asset('storage/tukang/no_image.jpg');
         }
-
         return asset('storage/tukang/' . $value);
     }
 }
